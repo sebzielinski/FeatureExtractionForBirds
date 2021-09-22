@@ -1,45 +1,58 @@
+import librosa
 from pyAudioAnalysis import audioBasicIO
 from pyAudioAnalysis import ShortTermFeatures
 from dtw import *
 import scipy as scipy
 import numpy as np
 import matplotlib.pyplot as plt
+from librosa import *
 
 dyn_time_warp = False
 cross_corr = True
+librsa = True
 
-# use pyAudioAnalysis to read audio files
-[Fs, x] = audioBasicIO.read_audio_file("data/mitnoise.wav")
-# ShortTermFeatures.spectrogram(x, Fs, 0.050*Fs, 0.025*Fs, 1, 1)
+if (librsa):
+    # use librosa to read files and get MFCCs
+    y, sr = librosa.load("data/mitnoise.wav", sr=44100)
+    mfcc_template = librosa.feature.mfcc(y, sr, n_mfcc=13)
+    print("librosa mfccs: ", mfcc_template.shape)
 
-# use pyAudioAnalysis to extract relevant features
-F, f_names = ShortTermFeatures.feature_extraction(x, Fs, 0.050*Fs, 0.025*Fs, deltas=False)
-# plt.subplot(2,1,1); plt.plot(F[0,:]); plt.xlabel('Frame no'); plt.ylabel(f_names[0])
-# plt.subplot(2,1,2); plt.plot(F[1,:]); plt.xlabel('Frame no'); plt.ylabel(f_names[1]); plt.show()
+    y, sr = librosa.load("data/mitnoise.wav", sr=44100)
+    mfcc_query = librosa.feature.mfcc(y, sr, n_mfcc=13)
 
-# mfcc in feature vector an Stelle 8 bis 20
-print("features: ", len(f_names), f_names[8:21])
-print("Feature Vectors: ", F.shape)
+else:
+    # use pyAudioAnalysis to read audio files
+    [Fs, x] = audioBasicIO.read_audio_file("data/mitnoise.wav")
+    # ShortTermFeatures.spectrogram(x, Fs, 0.050*Fs, 0.025*Fs, 1, 1)
 
-# for i in range(len(F)):
-#     print(F[i][8:21])
+    # use pyAudioAnalysis to extract relevant features
+    F, f_names = ShortTermFeatures.feature_extraction(x, Fs, 0.050*Fs, 0.025*Fs, deltas=False)
+    # plt.subplot(2,1,1); plt.plot(F[0,:]); plt.xlabel('Frame no'); plt.ylabel(f_names[0])
+    # plt.subplot(2,1,2); plt.plot(F[1,:]); plt.xlabel('Frame no'); plt.ylabel(f_names[1]); plt.show()
 
-[Fs, x] = audioBasicIO.read_audio_file("data/Sylvia atricapilla croatia.wav")
-# ShortTermFeatures.spectrogram(x, Fs, 0.050*Fs, 0.025*Fs, 1, 1)
-F_2, f_names_2 = ShortTermFeatures.feature_extraction(x, Fs, 0.050*Fs, 0.025*Fs)
-# plt.subplot(2,1,1); plt.plot(F[0,:]); plt.xlabel('Frame no'); plt.ylabel(f_names[0])
-# plt.subplot(2,1,2); plt.plot(F[1,:]); plt.xlabel('Frame no'); plt.ylabel(f_names[1]); plt.show()
+    # mfcc in feature vector an Stelle 8 bis 20
+    print("features: ", len(f_names), f_names[8:21])
+    print("Feature Vectors: ", F.shape)
 
-# mfcc in feature vector an Stelle 8 bis 20
-print(f_names[8:21])
-print("Feature Vectors: ", F_2.shape)
+    # for i in range(len(F)):
+    #     print(F[i][8:21])
 
-# for i in range(len(F)):
-#     print(F[i][8:21])
+    [Fs, x] = audioBasicIO.read_audio_file("data/Sylvia atricapilla spain_1_1.wav")
+    # ShortTermFeatures.spectrogram(x, Fs, 0.050*Fs, 0.025*Fs, 1, 1)
+    F_2, f_names_2 = ShortTermFeatures.feature_extraction(x, Fs, 0.050*Fs, 0.025*Fs)
+    # plt.subplot(2,1,1); plt.plot(F[0,:]); plt.xlabel('Frame no'); plt.ylabel(f_names[0])
+    # plt.subplot(2,1,2); plt.plot(F[1,:]); plt.xlabel('Frame no'); plt.ylabel(f_names[1]); plt.show()
 
-# use MFCC features only (index 8:21)
-query = F_2[8:21, :]
-template = F[8:21, :]
+    # mfcc in feature vector an Stelle 8 bis 20
+    print(f_names[8:21])
+    print("Feature Vectors: ", F_2.shape)
+
+    # for i in range(len(F)):
+    #     print(F[i][8:21])
+
+    # use MFCC features only (index 8:21)
+    query = F_2[8:21, :]
+    template = F[8:21, :]
 
 
 
@@ -52,21 +65,48 @@ if (dyn_time_warp):
     alignment.plot(type="threeway")
 
 if (cross_corr):
-    for i in range(13):
-        query = F_2[i+8, :]
-        template = F[i+8, :]
-        print("Query dimensions: ", query.shape, type(query))
-        print("template dimensions: ", template.shape, type(query))
-        # cross correlation (can be used on audio with different length)
-        cc = scipy.signal.correlate(query, template)
-        print("cross correlated array: ", cc.shape, type(cc))
-        # find index of match
-        # y, x = np.unravel_index(np.argmax(cc), cc.shape)
-        # print(cc[y, x], y, x)
-        # for i in range(25):
-        #     plt.plot(cc[i, :])
-        # plt.plot(cc[y, :])
-        plt.title("mfcc" + str(i+1))
-        plt.plot(cc)
-        plt.show()
+
+    if (librsa):
+        score = 0
+        for i in range(13):
+            query = mfcc_query[i, :]
+            template = mfcc_template[i, :]
+            print("Query dimensions: ", query.shape, type(query))
+            print("template dimensions: ", template.shape, type(query))
+            # cross correlation (can be used on audio with different length)
+            cc = scipy.signal.correlate(query, template)
+            print("cross correlated array: ", cc.shape, type(cc))
+            # find index of match
+            # y, x = np.unravel_index(np.argmax(cc), cc.shape)
+            # print(cc[y, x], y, x)
+            # for i in range(25):
+            #     plt.plot(cc[i, :])
+            # plt.plot(cc[y, :])
+            score_loc = cc[np.argmax(cc)]
+            print(score_loc)
+            plt.title("mfcc " + str(i + 1))
+            plt.plot(cc)
+            # plt.show()
+            score += score_loc
+        score /= 1000000
+
+        print("Score: ", score)
+    else:
+        for i in range(13):
+            query = F_2[i+8, :]
+            template = F[i+8, :]
+            print("Query dimensions: ", query.shape, type(query))
+            print("template dimensions: ", template.shape, type(query))
+            # cross correlation (can be used on audio with different length)
+            cc = scipy.signal.correlate(query, template)
+            print("cross correlated array: ", cc.shape, type(cc))
+            # find index of match
+            # y, x = np.unravel_index(np.argmax(cc), cc.shape)
+            # print(cc[y, x], y, x)
+            # for i in range(25):
+            #     plt.plot(cc[i, :])
+            # plt.plot(cc[y, :])
+            plt.title("mfcc" + str(i+1))
+            plt.plot(cc)
+            plt.show()
 
