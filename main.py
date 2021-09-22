@@ -13,7 +13,7 @@ cross_corr = True
 # ShortTermFeatures.spectrogram(x, Fs, 0.050*Fs, 0.025*Fs, 1, 1)
 
 # use pyAudioAnalysis to extract relevant features
-F, f_names = ShortTermFeatures.feature_extraction(x, Fs, 0.050*Fs, 0.025*Fs)
+F, f_names = ShortTermFeatures.feature_extraction(x, Fs, 0.050*Fs, 0.025*Fs, deltas=False)
 # plt.subplot(2,1,1); plt.plot(F[0,:]); plt.xlabel('Frame no'); plt.ylabel(f_names[0])
 # plt.subplot(2,1,2); plt.plot(F[1,:]); plt.xlabel('Frame no'); plt.ylabel(f_names[1]); plt.show()
 
@@ -24,7 +24,7 @@ print("Feature Vectors: ", F.shape)
 # for i in range(len(F)):
 #     print(F[i][8:21])
 
-[Fs, x] = audioBasicIO.read_audio_file("data/m16s1_2.wav")
+[Fs, x] = audioBasicIO.read_audio_file("data/Sylvia atricapilla croatia.wav")
 # ShortTermFeatures.spectrogram(x, Fs, 0.050*Fs, 0.025*Fs, 1, 1)
 F_2, f_names_2 = ShortTermFeatures.feature_extraction(x, Fs, 0.050*Fs, 0.025*Fs)
 # plt.subplot(2,1,1); plt.plot(F[0,:]); plt.xlabel('Frame no'); plt.ylabel(f_names[0])
@@ -41,8 +41,7 @@ print("Feature Vectors: ", F_2.shape)
 query = F_2[8:21, :]
 template = F[8:21, :]
 
-print("Query dimensions: ", query.shape, type(query))
-print("template dimensions: ", template.shape, type(query))
+
 
 # dynamic time warping (requires feature vectors of same dimensions)
 # limitation: can only be used on audio with exact same length
@@ -53,11 +52,21 @@ if (dyn_time_warp):
     alignment.plot(type="threeway")
 
 if (cross_corr):
-    # cross correlation (can be used on audio with different length)
-    cc = scipy.signal.correlate2d(query, template)
-    print("cross correlated array: ", cc.shape, type(cc))
-    # find index of match
-    y, x = np.unravel_index(np.argmax(cc), cc.shape)
-    print(cc[y, x], y, x)
-    plt.plot(cc[y, :])
-    plt.show()
+    for i in range(13):
+        query = F_2[i+8, :]
+        template = F[i+8, :]
+        print("Query dimensions: ", query.shape, type(query))
+        print("template dimensions: ", template.shape, type(query))
+        # cross correlation (can be used on audio with different length)
+        cc = scipy.signal.correlate(query, template)
+        print("cross correlated array: ", cc.shape, type(cc))
+        # find index of match
+        # y, x = np.unravel_index(np.argmax(cc), cc.shape)
+        # print(cc[y, x], y, x)
+        # for i in range(25):
+        #     plt.plot(cc[i, :])
+        # plt.plot(cc[y, :])
+        plt.title("mfcc" + str(i+1))
+        plt.plot(cc)
+        plt.show()
+
