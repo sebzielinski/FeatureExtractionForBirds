@@ -1,4 +1,5 @@
 import librosa
+import sklearn.metrics
 from pyAudioAnalysis import audioBasicIO
 from pyAudioAnalysis import ShortTermFeatures
 from dtw import *
@@ -6,23 +7,24 @@ import scipy as scipy
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from sklearn import metrics
 
 dyn_time_warp = False
 cross_corr = True
 librsa = True
+num_mfccs = 50
 
 directory = "data/labeled"
 print("calculating labels and scores for given bird song audio files...")
 num_file = 1
 
+labels = []
+scores = []
+
 for birdsong in os.scandir(directory):
 
     print("num_file: ", num_file)
     num_file += 1
-
-    # arrays for labels and scores
-    labels = []
-    scores = []
 
     if birdsong.is_file():
         # print(birdsong.path)
@@ -62,15 +64,19 @@ for birdsong in os.scandir(directory):
                 """
                 # use librosa to read files and get MFCCs
                 y, sr = librosa.load(birdsong.path, sr=44100)
-                mfcc_template = librosa.feature.mfcc(y, sr, n_mfcc=13)
+                mfcc_template = librosa.feature.mfcc(y, sr, n_mfcc=num_mfccs)
                 y, sr = librosa.load(birdsong_query.path, sr=44100)
-                mfcc_query = librosa.feature.mfcc(y, sr, n_mfcc=13)
+                mfcc_query = librosa.feature.mfcc(y, sr, n_mfcc=num_mfccs)
 
                 score = 0
                 # calculate score for every MFCC-vector
-                for i in range(13):
+                for i in range(num_mfccs):
+                    # first: cross correlation (can be used on audio with different length)
+                    # use this to find position of best match between query and template
+                    # normalize before cross correlation
                     query = mfcc_query[i, :] / np.linalg.norm(mfcc_query[i, :])
                     template = mfcc_template[i, :] / np.linalg.norm(mfcc_template[i, :])
+                    # cc = scipy.signal.correlate(query, template, mode='valid')
                     # use pearson correlation coefficient
                     # problem: vectors have to have same length
                     # solution: pad smaller vector with zeros
@@ -82,13 +88,25 @@ for birdsong in os.scandir(directory):
                     # take absolute value of cc (high negative values can indicate correlation)
                     score += abs(pearson_cc)
                 # print("Score: ", score)
-                score /= 13
+                score /= num_mfccs
+                scores.append(score)
 
-        # print(labels)
+fpr, tpr, thresholds = metrics.roc_curve(labels, scores)
+roc_auc = metrics.auc(fpr, tpr)
+print(fpr)
+print(tpr)
+print(thresholds)
+display = metrics.RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc)
+display.plot()
+# print(labels)
+# plt.plot(labels)
+# plt.plot(scores)
+plt.show()
 
 
 print("done.\n")
 
+"""
 if (librsa):
     # use librosa to read files and get MFCCs
     y, sr = librosa.load("data/m16s1_1.wav", sr=44100)
@@ -203,4 +221,4 @@ if (cross_corr):
             plt.title("mfcc" + str(i+1))
             plt.plot(cc)
             plt.show()
-
+"""
