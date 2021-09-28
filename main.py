@@ -5,19 +5,97 @@ from dtw import *
 import scipy as scipy
 import numpy as np
 import matplotlib.pyplot as plt
-from librosa import *
+import os
 
 dyn_time_warp = False
 cross_corr = True
 librsa = True
 
+directory = "data/labeled"
+print("calculating labels and scores for given bird song audio files...")
+num_file = 1
+
+for birdsong in os.scandir(directory):
+
+    print("num_file: ", num_file)
+    num_file += 1
+
+    # arrays for labels and scores
+    labels = []
+    scores = []
+
+    if birdsong.is_file():
+        # print(birdsong.path)
+        filename = birdsong.path.split("/")[2].split(".")[0]
+        # print(filename)
+        filename = filename.split("_")
+        individual = filename[0][1]
+        recording = filename[1]
+        # print(individual)
+        # print(recording)
+        # print("Template: individual: ", individual, ", recording: ", recording)
+
+        file_template = birdsong.path
+        # file_template = directory + "/m" + individual + "_" + recording + ".wav"
+        # print(file_template)
+
+        for birdsong_query in os.scandir(directory):
+            if birdsong_query.is_file():
+                # if not (birdsong.path == birdsong_query.path):
+                # print("template: ", birdsong.path, ", query: ", birdsong_query.path)
+                filename_query = birdsong_query.path.split("/")[2].split(".")[0]
+                # print(filename)
+                filename_query = filename_query.split("_")
+                individual_query = filename_query[0][1]
+                recording_query = filename_query[1]
+
+                # fill in correct labels. 1 if same individual, 0 if different individual
+                if (individual == individual_query):
+                    labels.append(1)
+                else:
+                    labels.append(0)
+
+
+                """ 
+                calculate correlation coefficient for every template/ query pair
+                to obtain label and score vectors 
+                """
+                # use librosa to read files and get MFCCs
+                y, sr = librosa.load(birdsong.path, sr=44100)
+                mfcc_template = librosa.feature.mfcc(y, sr, n_mfcc=13)
+                y, sr = librosa.load(birdsong_query.path, sr=44100)
+                mfcc_query = librosa.feature.mfcc(y, sr, n_mfcc=13)
+
+                score = 0
+                # calculate score for every MFCC-vector
+                for i in range(13):
+                    query = mfcc_query[i, :] / np.linalg.norm(mfcc_query[i, :])
+                    template = mfcc_template[i, :] / np.linalg.norm(mfcc_template[i, :])
+                    # use pearson correlation coefficient
+                    # problem: vectors have to have same length
+                    # solution: pad smaller vector with zeros
+                    ml = max(len(query), len(template))
+                    query = np.concatenate([query, np.zeros(ml - len(query))])
+                    template = np.concatenate([template, np.zeros(ml - len(template))])
+                    pearson_cc, bla = scipy.stats.pearsonr(query, template)
+                    # print("Pearson correlation coefficient: ", pearson_cc)
+                    # take absolute value of cc (high negative values can indicate correlation)
+                    score += abs(pearson_cc)
+                # print("Score: ", score)
+                score /= 13
+
+        # print(labels)
+
+
+print("done.\n")
+
 if (librsa):
     # use librosa to read files and get MFCCs
-    y, sr = librosa.load("data/Sylvia atricapilla spain_2_1.wav", sr=44100)
+    y, sr = librosa.load("data/m16s1_1.wav", sr=44100)
     mfcc_template = librosa.feature.mfcc(y, sr, n_mfcc=13)
-    print("librosa mfccs: ", mfcc_template.shape)
+    # print("librosa mfccs: ", mfcc_template.shape)
 
-    y, sr = librosa.load("data/Sylvia atricapilla spain_2_2.wav", sr=44100)
+    y, sr = librosa.load("data/differentBird.wav", sr=44100)
     mfcc_query = librosa.feature.mfcc(y, sr, n_mfcc=13)
 
 else:
@@ -73,12 +151,12 @@ if (cross_corr):
             # query = mfcc_query[i, :]
             template = mfcc_template[i, :] / np.linalg.norm(mfcc_template[i, :])
             # template = mfcc_template[i, :]
-            print("Query dimensions: ", query.shape, type(query), query.dtype)
-            print("template dimensions: ", template.shape, type(template), template.dtype)
+            # print("Query dimensions: ", query.shape, type(query), query.dtype)
+            # print("template dimensions: ", template.shape, type(template), template.dtype)
             # cross correlation (can be used on audio with different length)
             # normalize before cross correlation
             cc = scipy.signal.correlate(query, template, mode='valid')
-            print("cross correlated array: ", cc.shape, type(cc))
+            # print("cross correlated array: ", cc.shape, type(cc))
 
             # use pearson correlation coefficient
             # problem: vectors have to have same length
