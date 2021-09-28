@@ -13,11 +13,11 @@ librsa = True
 
 if (librsa):
     # use librosa to read files and get MFCCs
-    y, sr = librosa.load("data/mitnoise.wav", sr=44100)
+    y, sr = librosa.load("data/Sylvia atricapilla spain_2_1.wav", sr=44100)
     mfcc_template = librosa.feature.mfcc(y, sr, n_mfcc=13)
     print("librosa mfccs: ", mfcc_template.shape)
 
-    y, sr = librosa.load("data/mitnoise.wav", sr=44100)
+    y, sr = librosa.load("data/Sylvia atricapilla spain_2_2.wav", sr=44100)
     mfcc_query = librosa.feature.mfcc(y, sr, n_mfcc=13)
 
 else:
@@ -69,26 +69,42 @@ if (cross_corr):
     if (librsa):
         score = 0
         for i in range(13):
-            query = mfcc_query[i, :]
-            template = mfcc_template[i, :]
-            print("Query dimensions: ", query.shape, type(query))
-            print("template dimensions: ", template.shape, type(query))
+            query = mfcc_query[i, :] / np.linalg.norm(mfcc_query[i, :])
+            # query = mfcc_query[i, :]
+            template = mfcc_template[i, :] / np.linalg.norm(mfcc_template[i, :])
+            # template = mfcc_template[i, :]
+            print("Query dimensions: ", query.shape, type(query), query.dtype)
+            print("template dimensions: ", template.shape, type(template), template.dtype)
             # cross correlation (can be used on audio with different length)
-            cc = scipy.signal.correlate(query, template)
+            # normalize before cross correlation
+            cc = scipy.signal.correlate(query, template, mode='valid')
             print("cross correlated array: ", cc.shape, type(cc))
+
+            # use pearson correlation coefficient
+            # problem: vectors have to have same length
+            # solution: pad smaller vector with zeros
+            ml = max(len(query), len(template))
+            query = np.concatenate([query, np.zeros(ml - len(query))])
+            template = np.concatenate([template, np.zeros(ml - len(template))])
+            pearson_cc, bla = scipy.stats.pearsonr(query, template)
+            print("Pearson correlation coefficient: ", pearson_cc)
             # find index of match
             # y, x = np.unravel_index(np.argmax(cc), cc.shape)
             # print(cc[y, x], y, x)
             # for i in range(25):
             #     plt.plot(cc[i, :])
             # plt.plot(cc[y, :])
-            score_loc = cc[np.argmax(cc)]
-            print(score_loc)
+            # score_loc = cc[np.argmax(cc)]
+            # score_loc = np.sum(cc)
+            # eucl_dist = np.linalg.norm(mfcc_query[i, :] - mfcc_template[i, :])
+            # cc /= np.linalg.norm(cc)
+            # score_loc = cc[np.argmax(cc)] / np.median(cc)
+            # print(score_loc)
             plt.title("mfcc " + str(i + 1))
             plt.plot(cc)
             # plt.show()
-            score += score_loc
-        score /= 1000000
+            # score += score_loc
+            score += pearson_cc
 
         print("Score: ", score)
     else:
