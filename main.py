@@ -63,10 +63,17 @@ for birdsong in os.scandir(directory):
                 to obtain label and score vectors 
                 """
                 # use librosa to read files and get MFCCs
-                y, sr = librosa.load(birdsong.path, sr=44100)
-                mfcc_template = librosa.feature.mfcc(y, sr, n_mfcc=num_mfccs)
-                y, sr = librosa.load(birdsong_query.path, sr=44100)
-                mfcc_query = librosa.feature.mfcc(y, sr, n_mfcc=num_mfccs)
+                y_1, sr_1 = librosa.load(birdsong.path, sr=44100)
+                mfcc_template = librosa.feature.mfcc(y_1, sr_1, n_mfcc=num_mfccs)
+                y_2, sr_2 = librosa.load(birdsong_query.path, sr=44100)
+                mfcc_query = librosa.feature.mfcc(y_2, sr_2, n_mfcc=num_mfccs)
+
+
+                # TODO 
+                # cross correlation to match recordings due to imperfect segmentation
+                # shift recording according to highest peak in cc-array
+                # cc = scipy.signal.correlate(query, template, mode='full', method='fft')
+                
 
                 score = 0
                 # calculate score for every MFCC-vector
@@ -76,7 +83,6 @@ for birdsong in os.scandir(directory):
                     # normalize before cross correlation
                     query = mfcc_query[i, :] / np.linalg.norm(mfcc_query[i, :])
                     template = mfcc_template[i, :] / np.linalg.norm(mfcc_template[i, :])
-                    # cc = scipy.signal.correlate(query, template, mode='valid')
                     # use pearson correlation coefficient
                     # problem: vectors have to have same length
                     # solution: pad smaller vector with zeros
