@@ -1,18 +1,20 @@
 import librosa
 import sklearn.metrics
-from pyAudioAnalysis import audioBasicIO
-from pyAudioAnalysis import ShortTermFeatures
-from dtw import *
+# from pyAudioAnalysis import audioBasicIO
+# from pyAudioAnalysis import ShortTermFeatures
+# from dtw import *
 import scipy as scipy
 import numpy as np
 import matplotlib.pyplot as plt
 import os
 from sklearn import metrics
 
+import time
+
 dyn_time_warp = False
 cross_corr = True
 librsa = True
-num_mfccs = 50
+num_mfccs = 20
 
 directory = "data/labeled"
 print("calculating labels and scores for given bird song audio files...")
@@ -20,6 +22,10 @@ num_file = 1
 
 labels = []
 scores = []
+mfccs = {}
+
+# timing
+start_time = time.perf_counter()
 
 for birdsong in os.scandir(directory):
 
@@ -61,18 +67,57 @@ for birdsong in os.scandir(directory):
                 """ 
                 calculate correlation coefficient for every template/ query pair
                 to obtain label and score vectors 
+                save calculated mfccs for speedup
                 """
-                # use librosa to read files and get MFCCs
-                y_1, sr_1 = librosa.load(birdsong.path, sr=44100)
-                mfcc_template = librosa.feature.mfcc(y_1, sr_1, n_mfcc=num_mfccs)
-                y_2, sr_2 = librosa.load(birdsong_query.path, sr=44100)
-                mfcc_query = librosa.feature.mfcc(y_2, sr_2, n_mfcc=num_mfccs)
+                if not birdsong.path in mfccs:
+                    # use librosa to read files and get MFCCs
+                    y_1, sr_1 = librosa.load(birdsong.path, sr=44100)
+                    mfcc_template = librosa.feature.mfcc(y_1, sr_1, n_mfcc=num_mfccs)
+                    mfccs = {birdsong.path: mfcc_template}
+                else: 
+                    # print("mfcc already calculated for: ", birdsong.path)
+                    y_1, sr_1 = librosa.load(birdsong.path, sr=44100)
+                    mfcc_template = mfccs[birdsong.path]
+                if not birdsong_query.path in mfccs:
+                    y_2, sr_2 = librosa.load(birdsong_query.path, sr=44100)
+                    mfcc_query = librosa.feature.mfcc(y_2, sr_2, n_mfcc=num_mfccs)
+                    mfccs = {birdsong.path: mfcc_query}
+                else: 
+                    # print("mfcc already calculated for: ", birdsong_query.path)
+                    y_2, sr_2 = librosa.load(birdsong_query.path, sr=44100)
+                    mfcc_query = mfccs[birdsong_query.path]
 
 
                 # TODO 
                 # cross correlation to match recordings due to imperfect segmentation
                 # shift recording according to highest peak in cc-array
-                # cc = scipy.signal.correlate(query, template, mode='full', method='fft')
+                cc = scipy.signal.correlate(y_1, y_2, mode='same', method='fft')
+                
+                # get index of peak 
+                peak_index = np.where(cc == np.amax(cc))
+                
+                # get lag array
+                lag_array = scipy.signal.correlation_lags(len(y_1), len(y_2))
+                lag = lag_array[np.argmax(cc)]
+                
+                # show template and query
+                ax1 = plt.subplot(211)
+                ax1.set_title("template")
+                ax1.plot(y_1)
+                ax2 = plt.subplot(212)
+                ax2.set_title("query")
+                ax2.plot(y_2)
+                plt.show()
+                
+                # show 
+                
+                # show cc array
+                plt.title(f"lag: {lag/sr_1}")
+                plt.plot(cc)
+                plt.show()
+                
+                
+                
                 
 
                 score = 0
@@ -97,11 +142,14 @@ for birdsong in os.scandir(directory):
                 score /= num_mfccs
                 scores.append(score)
 
+end_time = time.perf_counter()
+print(f"calculation took {end_time - start_time:0.4f} seconds")
+
 fpr, tpr, thresholds = metrics.roc_curve(labels, scores)
 roc_auc = metrics.auc(fpr, tpr)
-print(fpr)
-print(tpr)
-print(thresholds)
+# print(fpr)
+# print(tpr)
+# print(thresholds)
 display = metrics.RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc)
 display.plot()
 # print(labels)
@@ -111,120 +159,3 @@ plt.show()
 
 
 print("done.\n")
-
-"""
-if (librsa):
-    # use librosa to read files and get MFCCs
-    y, sr = librosa.load("data/m16s1_1.wav", sr=44100)
-    mfcc_template = librosa.feature.mfcc(y, sr, n_mfcc=13)
-    # print("librosa mfccs: ", mfcc_template.shape)
-
-    y, sr = librosa.load("data/differentBird.wav", sr=44100)
-    mfcc_query = librosa.feature.mfcc(y, sr, n_mfcc=13)
-
-else:
-    # use pyAudioAnalysis to read audio files
-    [Fs, x] = audioBasicIO.read_audio_file("data/mitnoise.wav")
-    # ShortTermFeatures.spectrogram(x, Fs, 0.050*Fs, 0.025*Fs, 1, 1)
-
-    # use pyAudioAnalysis to extract relevant features
-    F, f_names = ShortTermFeatures.feature_extraction(x, Fs, 0.050*Fs, 0.025*Fs, deltas=False)
-    # plt.subplot(2,1,1); plt.plot(F[0,:]); plt.xlabel('Frame no'); plt.ylabel(f_names[0])
-    # plt.subplot(2,1,2); plt.plot(F[1,:]); plt.xlabel('Frame no'); plt.ylabel(f_names[1]); plt.show()
-
-    # mfcc in feature vector an Stelle 8 bis 20
-    print("features: ", len(f_names), f_names[8:21])
-    print("Feature Vectors: ", F.shape)
-
-    # for i in range(len(F)):
-    #     print(F[i][8:21])
-
-    [Fs, x] = audioBasicIO.read_audio_file("data/Sylvia atricapilla spain_1_1.wav")
-    # ShortTermFeatures.spectrogram(x, Fs, 0.050*Fs, 0.025*Fs, 1, 1)
-    F_2, f_names_2 = ShortTermFeatures.feature_extraction(x, Fs, 0.050*Fs, 0.025*Fs)
-    # plt.subplot(2,1,1); plt.plot(F[0,:]); plt.xlabel('Frame no'); plt.ylabel(f_names[0])
-    # plt.subplot(2,1,2); plt.plot(F[1,:]); plt.xlabel('Frame no'); plt.ylabel(f_names[1]); plt.show()
-
-    # mfcc in feature vector an Stelle 8 bis 20
-    print(f_names[8:21])
-    print("Feature Vectors: ", F_2.shape)
-
-    # for i in range(len(F)):
-    #     print(F[i][8:21])
-
-    # use MFCC features only (index 8:21)
-    query = F_2[8:21, :]
-    template = F[8:21, :]
-
-
-
-# dynamic time warping (requires feature vectors of same dimensions)
-# limitation: can only be used on audio with exact same length
-if (dyn_time_warp):
-    alignment = dtw(query, template, keep_internals=True)
-    print("alignement: ", type(alignment))
-    print(alignment)
-    alignment.plot(type="threeway")
-
-if (cross_corr):
-
-    if (librsa):
-        score = 0
-        for i in range(13):
-            query = mfcc_query[i, :] / np.linalg.norm(mfcc_query[i, :])
-            # query = mfcc_query[i, :]
-            template = mfcc_template[i, :] / np.linalg.norm(mfcc_template[i, :])
-            # template = mfcc_template[i, :]
-            # print("Query dimensions: ", query.shape, type(query), query.dtype)
-            # print("template dimensions: ", template.shape, type(template), template.dtype)
-            # cross correlation (can be used on audio with different length)
-            # normalize before cross correlation
-            cc = scipy.signal.correlate(query, template, mode='valid')
-            # print("cross correlated array: ", cc.shape, type(cc))
-
-            # use pearson correlation coefficient
-            # problem: vectors have to have same length
-            # solution: pad smaller vector with zeros
-            ml = max(len(query), len(template))
-            query = np.concatenate([query, np.zeros(ml - len(query))])
-            template = np.concatenate([template, np.zeros(ml - len(template))])
-            pearson_cc, bla = scipy.stats.pearsonr(query, template)
-            print("Pearson correlation coefficient: ", pearson_cc)
-            # find index of match
-            # y, x = np.unravel_index(np.argmax(cc), cc.shape)
-            # print(cc[y, x], y, x)
-            # for i in range(25):
-            #     plt.plot(cc[i, :])
-            # plt.plot(cc[y, :])
-            # score_loc = cc[np.argmax(cc)]
-            # score_loc = np.sum(cc)
-            # eucl_dist = np.linalg.norm(mfcc_query[i, :] - mfcc_template[i, :])
-            # cc /= np.linalg.norm(cc)
-            # score_loc = cc[np.argmax(cc)] / np.median(cc)
-            # print(score_loc)
-            plt.title("mfcc " + str(i + 1))
-            plt.plot(cc)
-            # plt.show()
-            # score += score_loc
-            score += pearson_cc
-
-        print("Score: ", score)
-    else:
-        for i in range(13):
-            query = F_2[i+8, :]
-            template = F[i+8, :]
-            print("Query dimensions: ", query.shape, type(query))
-            print("template dimensions: ", template.shape, type(query))
-            # cross correlation (can be used on audio with different length)
-            cc = scipy.signal.correlate(query, template)
-            print("cross correlated array: ", cc.shape, type(cc))
-            # find index of match
-            # y, x = np.unravel_index(np.argmax(cc), cc.shape)
-            # print(cc[y, x], y, x)
-            # for i in range(25):
-            #     plt.plot(cc[i, :])
-            # plt.plot(cc[y, :])
-            plt.title("mfcc" + str(i+1))
-            plt.plot(cc)
-            plt.show()
-"""
