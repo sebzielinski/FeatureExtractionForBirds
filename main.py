@@ -1,20 +1,15 @@
 import librosa
-import sklearn.metrics
-# from pyAudioAnalysis import audioBasicIO
-# from pyAudioAnalysis import ShortTermFeatures
-# from dtw import *
 import scipy as scipy
 import numpy as np
 import matplotlib.pyplot as plt
-import os
 from sklearn import metrics
 
 import time
+import argparse
+import os
 
-dyn_time_warp = False
 cross_corr = True
 librsa = True
-num_mfccs = 20
 
 directory = "data/labeled"
 print("calculating labels and scores for given bird song audio files...")
@@ -23,6 +18,25 @@ num_file = 1
 labels = []
 scores = []
 mfccs = {}
+parser = argparse.ArgumentParser()
+
+parser.add_argument("-d", "--debug",
+                    action="store_true",
+                    dest="debug_plot"
+                    )
+parser.add_argument("-c", "--cross_correlation",
+                    action="store_true",
+                    dest="cc"
+                    )
+parser.add_argument("-n", "--num_mfcc",
+                    default=15,
+                    type=int,
+                    nargs=1,
+                    dest="num_mfccs")
+
+args = parser.parse_args()
+num_mfccs = args.num_mfccs[0]
+print(f"amount of mfccs to use: {num_mfccs}")
 
 # timing
 start_time = time.perf_counter()
@@ -88,37 +102,33 @@ for birdsong in os.scandir(directory):
                     mfcc_query = mfccs[birdsong_query.path]
 
 
-                # TODO 
-                # cross correlation to match recordings due to imperfect segmentation
-                # shift recording according to highest peak in cc-array
-                cc = scipy.signal.correlate(y_1, y_2, mode='same', method='fft')
-                
-                # get index of peak 
-                peak_index = np.where(cc == np.amax(cc))
-                
-                # get lag array
-                lag_array = scipy.signal.correlation_lags(len(y_1), len(y_2))
-                lag = lag_array[np.argmax(cc)]
-                
-                # show template and query
-                ax1 = plt.subplot(211)
-                ax1.set_title("template")
-                ax1.plot(y_1)
-                ax2 = plt.subplot(212)
-                ax2.set_title("query")
-                ax2.plot(y_2)
-                plt.show()
-                
-                # show 
-                
-                # show cc array
-                plt.title(f"lag: {lag/sr_1}")
-                plt.plot(cc)
-                plt.show()
-                
-                
-                
-                
+                # TODO cross correlation
+                if (args.cc):
+                    # cross correlation to match recordings due to imperfect segmentation
+                    # shift recording according to highest peak in cc-array
+                    cc = scipy.signal.correlate(y_1, y_2, mode='same', method='fft')
+                    
+                    # get index of peak 
+                    peak_index = np.where(cc == np.amax(cc))
+                    
+                    # get lag array
+                    lag_array = scipy.signal.correlation_lags(len(y_1), len(y_2))
+                    lag = lag_array[np.argmax(cc)]
+                    
+                    if(args.debug_plot):
+                        # show template and query
+                        ax1 = plt.subplot(211)
+                        ax1.set_title("template")
+                        ax1.plot(y_1)
+                        ax2 = plt.subplot(212)
+                        ax2.set_title("query")
+                        ax2.plot(y_2)
+                        plt.show()
+                        
+                        # show cc array
+                        plt.title(f"lag: {lag/sr_1}")
+                        plt.plot(cc)
+                        plt.show()
 
                 score = 0
                 # calculate score for every MFCC-vector
@@ -149,7 +159,7 @@ fpr, tpr, thresholds = metrics.roc_curve(labels, scores)
 roc_auc = metrics.auc(fpr, tpr)
 # print(fpr)
 # print(tpr)
-# print(thresholds)
+print(f"Thresholds: \n {thresholds} ")
 display = metrics.RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc)
 display.plot()
 # print(labels)
