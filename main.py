@@ -35,12 +35,20 @@ parser.add_argument("-v", "--verbose",
 parser.add_argument("-n", "--num_mfcc",
                     default=15,
                     type=int,
-                    nargs=1,
-                    dest="num_mfccs")
+                    nargs='?',
+                    dest="num_mfccs"
+                    )
+parser.add_argument("-s", "--sample_rate",
+                    default=44100,
+                    type=int,
+                    nargs='?',
+                    dest="sample_rate"
+                    )
 
 args = parser.parse_args()
 num_mfccs = args.num_mfccs
 print(f"amount of mfccs to use: {num_mfccs}")
+print(f"sample rate: {args.sample_rate}")
 
 # timing
 start_time = time.perf_counter()
@@ -90,18 +98,24 @@ for birdsong in os.scandir(directory):
                 
                 if not birdsong.path in mfccs:
                     # use librosa to read files and get MFCCs
-                    y_1, sr_1 = librosa.load(birdsong.path, sr=44100)
+                    y_1, sr_1 = librosa.load(birdsong.path, sr=args.sample_rate)
                     mfcc_template = librosa.feature.mfcc(y_1, sr_1, n_mfcc=num_mfccs)
                     mfccs[birdsong.path] = mfcc_template
-                else: 
+                else:
+                    if args.cc:
+                        # load audio file if cc is used
+                        y_1, sr_1 = librosa.load(birdsong.path, sr=args.sample_rate)
                     if args.verbose:
                         print("mfcc already calculated for template: ", birdsong.path)
                     mfcc_template = mfccs[birdsong.path]
                 if not birdsong_query.path in mfccs:
-                    y_2, sr_2 = librosa.load(birdsong_query.path, sr=44100)
+                    y_2, sr_2 = librosa.load(birdsong_query.path, sr=args.sample_rate)
                     mfcc_query = librosa.feature.mfcc(y_2, sr_2, n_mfcc=num_mfccs)
                     mfccs[birdsong_query.path] = mfcc_query
                 else: 
+                    if args.cc:
+                        # load audio file if cc is used
+                        y_2, sr_2 = librosa.load(birdsong_query.path, sr=args.sample_rate)
                     if args.verbose:
                         print("mfcc already calculated for query: ", birdsong_query.path)
                     mfcc_query = mfccs[birdsong_query.path]
@@ -110,28 +124,29 @@ for birdsong in os.scandir(directory):
                 if (args.cc):
                     # cross correlation to match recordings due to imperfect segmentation
                     # shift recording according to highest peak in cc-array
-                    cc = scipy.signal.correlate(y_1, y_2, mode='same', method='fft')
+                    cc = scipy.signal.correlate(y_1, y_2, mode='full', method='fft')
                     
                     # get index of peak 
                     peak_index = np.where(cc == np.amax(cc))
                     
                     # get lag array
-                    lag_array = scipy.signal.correlation_lags(len(y_1), len(y_2))
+                    lag_array = scipy.signal.correlation_lags(len(y_1), len(y_2), mode='full')
                     lag = lag_array[np.argmax(cc)]
                     
                     if(args.debug_plot):
                         # show template and query
-                        ax1 = plt.subplot(211)
+                        ax1 = plt.subplot(221)
                         ax1.set_title("template")
                         ax1.plot(y_1)
-                        ax2 = plt.subplot(212)
+                        ax2 = plt.subplot(222)
                         ax2.set_title("query")
                         ax2.plot(y_2)
-                        plt.show()
                         
                         # show cc array
-                        plt.title(f"lag: {lag/sr_1}")
-                        plt.plot(cc)
+                        ax3 = plt.subplot(223)
+                        ax3.set_title(f"lag: {lag/sr_1}")
+                        ax3.plot(cc)
+                        plt.tight_layout()
                         plt.show()
 
                 score = 0
