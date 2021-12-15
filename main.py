@@ -28,6 +28,10 @@ parser.add_argument("-c", "--cross_correlation",
                     action="store_true",
                     dest="cc"
                     )
+parser.add_argument("-v", "--verbose",
+                    action="store_true",
+                    dest="verbose"
+                    )
 parser.add_argument("-n", "--num_mfcc",
                     default=15,
                     type=int,
@@ -83,24 +87,24 @@ for birdsong in os.scandir(directory):
                 to obtain label and score vectors 
                 save calculated mfccs for speedup
                 """
+                
                 if not birdsong.path in mfccs:
                     # use librosa to read files and get MFCCs
                     y_1, sr_1 = librosa.load(birdsong.path, sr=44100)
                     mfcc_template = librosa.feature.mfcc(y_1, sr_1, n_mfcc=num_mfccs)
-                    mfccs = {birdsong.path: mfcc_template}
+                    mfccs[birdsong.path] = mfcc_template
                 else: 
-                    # print("mfcc already calculated for: ", birdsong.path)
-                    y_1, sr_1 = librosa.load(birdsong.path, sr=44100)
+                    if args.verbose:
+                        print("mfcc already calculated for template: ", birdsong.path)
                     mfcc_template = mfccs[birdsong.path]
                 if not birdsong_query.path in mfccs:
                     y_2, sr_2 = librosa.load(birdsong_query.path, sr=44100)
                     mfcc_query = librosa.feature.mfcc(y_2, sr_2, n_mfcc=num_mfccs)
-                    mfccs = {birdsong.path: mfcc_query}
+                    mfccs[birdsong_query.path] = mfcc_query
                 else: 
-                    # print("mfcc already calculated for: ", birdsong_query.path)
-                    y_2, sr_2 = librosa.load(birdsong_query.path, sr=44100)
+                    if args.verbose:
+                        print("mfcc already calculated for query: ", birdsong_query.path)
                     mfcc_query = mfccs[birdsong_query.path]
-
 
                 # TODO cross correlation
                 if (args.cc):
