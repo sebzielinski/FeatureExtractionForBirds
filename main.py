@@ -35,7 +35,7 @@ parser.add_argument("-n", "--num_mfcc",
                     dest="num_mfccs")
 
 args = parser.parse_args()
-num_mfccs = args.num_mfccs[0]
+num_mfccs = args.num_mfccs
 print(f"amount of mfccs to use: {num_mfccs}")
 
 # timing
