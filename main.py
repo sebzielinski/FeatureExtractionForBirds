@@ -3,6 +3,7 @@ import scipy as scipy
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn import metrics
+from dtw import *
 
 import time
 import argparse
@@ -43,6 +44,10 @@ parser.add_argument("-s", "--sample_rate",
                     type=int,
                     nargs='?',
                     dest="sample_rate"
+                    )
+parser.add_argument("-D", "--dtw",
+                    action="store_true",
+                    dest="dtw"
                     )
 
 args = parser.parse_args()
@@ -136,10 +141,10 @@ for birdsong in os.scandir(directory):
                     if(args.debug_plot):
                         # show template and query
                         ax1 = plt.subplot(221)
-                        ax1.set_title("template")
+                        ax1.set_title(f"template: {birdsong.path}")
                         ax1.plot(y_1)
                         ax2 = plt.subplot(222)
-                        ax2.set_title("query")
+                        ax2.set_title(f"query: {birdsong_query.path}")
                         ax2.plot(y_2)
                         
                         # show cc array
@@ -149,6 +154,10 @@ for birdsong in os.scandir(directory):
                         plt.tight_layout()
                         plt.show()
 
+                # TODO dynamic time warping
+                if (args.dtw):
+                    pass
+                
                 score = 0
                 # calculate score for every MFCC-vector
                 for i in range(num_mfccs):
