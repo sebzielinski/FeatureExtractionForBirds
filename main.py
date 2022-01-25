@@ -103,24 +103,24 @@ for birdsong in os.scandir(directory):
                 
                 if not birdsong.path in mfccs:
                     # use librosa to read files and get MFCCs
-                    y_1, sr_1 = librosa.load(birdsong.path, sr=args.sample_rate)
+                    y_1, sr_1 = librosa.load(birdsong.path, sr=args.sample_rate, dtype=np.float32)
                     mfcc_template = librosa.feature.mfcc(y_1, sr_1, n_mfcc=num_mfccs)
                     mfccs[birdsong.path] = mfcc_template
                 else:
-                    if args.cc:
+                    if args.cc or args.dtw:
                         # load audio file if cc is used
-                        y_1, sr_1 = librosa.load(birdsong.path, sr=args.sample_rate)
+                        y_1, sr_1 = librosa.load(birdsong.path, sr=args.sample_rate, dtype=np.float32)
                     if args.verbose:
                         print("mfcc already calculated for template: ", birdsong.path)
                     mfcc_template = mfccs[birdsong.path]
                 if not birdsong_query.path in mfccs:
-                    y_2, sr_2 = librosa.load(birdsong_query.path, sr=args.sample_rate)
+                    y_2, sr_2 = librosa.load(birdsong_query.path, sr=args.sample_rate, dtype=np.float32)
                     mfcc_query = librosa.feature.mfcc(y_2, sr_2, n_mfcc=num_mfccs)
                     mfccs[birdsong_query.path] = mfcc_query
                 else: 
-                    if args.cc:
-                        # load audio file if cc is used
-                        y_2, sr_2 = librosa.load(birdsong_query.path, sr=args.sample_rate)
+                    if args.cc or args.dtw:
+                        # load audio file if cc or dtw is used
+                        y_2, sr_2 = librosa.load(birdsong_query.path, sr=args.sample_rate, dtype=np.float32)
                     if args.verbose:
                         print("mfcc already calculated for query: ", birdsong_query.path)
                     mfcc_query = mfccs[birdsong_query.path]
@@ -156,7 +156,8 @@ for birdsong in os.scandir(directory):
 
                 # TODO dynamic time warping
                 if (args.dtw):
-                    pass
+                    dtw_result = dtw(y_1, y_2, keep_internals=True)
+                    dtw_result.plot(type="threeway")
                 
                 score = 0
                 # calculate score for every MFCC-vector
