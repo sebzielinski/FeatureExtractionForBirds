@@ -154,7 +154,7 @@ for birdsong in os.scandir(directory):
                         plt.tight_layout()
                         plt.show()
 
-                # TODO dynamic time warping
+                # Dynamic Time Warping
                 if (args.dtw):
                     dtw_result = dtw(y_1, y_2, keep_internals=True)
                     dtw_result.plot(type="threeway")
