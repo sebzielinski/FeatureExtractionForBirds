@@ -1,3 +1,4 @@
+import re
 import librosa
 import numpy as np
 import scipy
@@ -7,12 +8,14 @@ import scipy
 def calculateMFCCs(path, sr=44100, n_mfcc=15):
     """ calculates MFCCs and returns them
     
-    @param: path The path to the audio file
-    @param: sr desired sample rate
+    @param:     path    The path to the audio file
+    @param:     sr      desired sample rate
+    @returns:   mfccs   the calculated mfcc feature vector
     """
     
     y_1, sr_1 = librosa.load(path, sr=sr)
     mfccs = librosa.feature.mfcc(y_1, sr_1, n_mfcc=n_mfcc)
+    
     return mfccs
 
 
@@ -23,9 +26,10 @@ def calculateScore(n_mfccs, query, template):
             1  --> high correlation
             -1 --> high inverse correlation
     
-    @param n_mfccs  number of mfccs of the feature vector
-    @param query    query feature vector
-    @param template template feature vector
+    @param   n_mfccs    number of mfccs of the feature vector
+    @param   query      query feature vector
+    @param   template   template feature vector
+    @returns score      the calculated similarity score
     """
     
     score = 0
@@ -48,6 +52,8 @@ def calculateScore(n_mfccs, query, template):
         score += abs(pearson_cc)
     # print("Score: ", score)
     score /= n_mfccs
+    
+    return score
 
 
 def calculateCrossCorrelation(query, template):
@@ -62,3 +68,6 @@ def calculateCrossCorrelation(query, template):
     # get lag array
     lag_array = scipy.signal.correlation_lags(len(query), len(template), mode='full')
     lag = lag_array[np.argmax(cc)]
+    
+    return cc, lag
+
