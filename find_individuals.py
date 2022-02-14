@@ -1,6 +1,10 @@
 import time
 import argparse
 import os
+import scipy
+import numpy as np
+import librosa
+
 
 import matplotlib.pyplot as plt
 from sklearn import metrics
@@ -116,6 +120,10 @@ for birdsong in os.scandir(directory):
 
                 # TODO cross correlation
                 if (args.cc):
+                    # load audios
+                    y_1, sr_1 = librosa.load(birdsong.path, sr=args.sample_rate)
+                    y_2, sr_2 = librosa.load(birdsong_query.path, sr=args.sample_rate)
+                    
                     # cross correlation to match recordings due to imperfect segmentation
                     # shift recording according to highest peak in cc-array
                     cc = scipy.signal.correlate(y_1, y_2, mode='full', method='fft')
@@ -126,6 +134,9 @@ for birdsong in os.scandir(directory):
                     # get lag array
                     lag_array = scipy.signal.correlation_lags(len(y_1), len(y_2), mode='full')
                     lag = lag_array[np.argmax(cc)]
+                    
+                    # shift the array according to the lag
+                    shifted = scipy.ndimage.interpolation.shift(y_2, lag, cval=0)
                     
                     if(args.debug_plot):
                         # show template and query
@@ -138,8 +149,8 @@ for birdsong in os.scandir(directory):
                         
                         # show cc array
                         ax3 = plt.subplot(223)
-                        ax3.set_title(f"lag: {lag/sr_1}")
-                        ax3.plot(cc)
+                        ax3.set_title(f"shifted")
+                        ax3.plot(shifted)
                         plt.tight_layout()
                         plt.show()
                 
