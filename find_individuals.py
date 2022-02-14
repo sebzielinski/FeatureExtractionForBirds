@@ -96,29 +96,6 @@ for birdsong in os.scandir(directory):
                 else:
                     labels.append(0)
 
-
-                """ 
-                calculate correlation coefficient for every template/ query pair
-                to obtain label and score vectors 
-                save calculated mfccs for speedup
-                """
-                
-                if not birdsong.path in mfccs:
-                    mfcc_template = calculateMFCCs(birdsong.path, sr=args.sample_rate)
-                    mfccs[birdsong.path] = mfcc_template
-                else:
-                    if args.verbose:
-                        print("mfcc already calculated for template: ", birdsong.path)
-                    mfcc_template = mfccs[birdsong.path]
-                if not birdsong_query.path in mfccs:
-                    mfcc_query = calculateMFCCs(birdsong_query.path, sr=args.sample_rate)
-                    mfccs[birdsong_query.path] = mfcc_query
-                else: 
-                    if args.verbose:
-                        print("mfcc already calculated for query: ", birdsong_query.path)
-                    mfcc_query = mfccs[birdsong_query.path]
-
-                # TODO cross correlation
                 if (args.cc):
                     # load audios
                     y_1, sr_1 = librosa.load(birdsong.path, sr=args.sample_rate)
@@ -153,7 +130,32 @@ for birdsong in os.scandir(directory):
                         ax3.plot(shifted)
                         plt.tight_layout()
                         plt.show()
-                
+                    
+                    # use shifted query audio    
+                    y_2 = shifted
+                    
+                # TODO Figure out caching with shifted audios
+                """ 
+                calculate correlation coefficient for every template/ query pair
+                to obtain label and score vectors 
+                save calculated mfccs for speedup
+                """
+                if not args.cc:
+                    if not birdsong.path in mfccs:
+                        mfcc_template = calculateMFCCs(birdsong.path, sr=args.sample_rate)
+                        mfccs[birdsong.path] = mfcc_template
+                    else:
+                        if args.verbose:
+                            print("mfcc already calculated for template: ", birdsong.path)
+                        mfcc_template = mfccs[birdsong.path]
+                    if not birdsong_query.path in mfccs:
+                        mfcc_query = calculateMFCCs(birdsong_query.path, sr=args.sample_rate)
+                        mfccs[birdsong_query.path] = mfcc_query
+                    else: 
+                        if args.verbose:
+                            print("mfcc already calculated for query: ", birdsong_query.path)
+                        mfcc_query = mfccs[birdsong_query.path]
+
                 score = 0
                 # calculate score for every MFCC-vector
                 for i in range(num_mfccs):
