@@ -3,13 +3,14 @@ import argparse
 import os
 import scipy
 import numpy as np
+import numpy.ma as ma
 import librosa
 
 
 import matplotlib.pyplot as plt
 from sklearn import metrics
 
-from utils import calculateMFCCs
+from utils import calculateMFCCs, calculateScore
 
 cross_corr = True
 librsa = True
@@ -108,13 +109,25 @@ for birdsong in os.scandir(directory):
                     # get index of peak 
                     peak_index = np.where(cc == np.amax(cc))
                     
-                    # get lag array
-                    lag_array = scipy.signal.correlation_lags(len(y_1), len(y_2), mode='full')
-                    lag = lag_array[np.argmax(cc)]
                     
-                    # shift the array according to the lag
-                    shifted = scipy.ndimage.interpolation.shift(y_2, lag, cval=0)
-                    
+                    # shift the shorter audio, otherwise problems may occur
+                    if (len(y_1) <= len(y_2)):
+                        # get lag array
+                        lag_array = scipy.signal.correlation_lags(len(y_1), len(y_2), mode='full')
+                        lag = lag_array[np.argmax(cc)]
+                        
+                        # shift the array according to the lag
+                        shifted = scipy.ndimage.interpolation.shift(y_2, lag, mode="constant")
+                        y_2 = shifted
+                    else:
+                        # get lag array
+                        lag_array = scipy.signal.correlation_lags(len(y_2), len(y_1), mode='full')
+                        lag = lag_array[np.argmax(cc)]
+                        
+                        # shift the array according to the lag
+                        shifted = scipy.ndimage.interpolation.shift(y_1, lag, mode="constant")
+                        y_1 = shifted
+                        
                     if(args.debug_plot):
                         # show template and query
                         ax1 = plt.subplot(221)
@@ -131,8 +144,6 @@ for birdsong in os.scandir(directory):
                         plt.tight_layout()
                         plt.show()
                     
-                    # use shifted query audio    
-                    y_2 = shifted
                     
                 # TODO Figure out caching with shifted audios
                 """ 
@@ -140,43 +151,48 @@ for birdsong in os.scandir(directory):
                 to obtain label and score vectors 
                 save calculated mfccs for speedup
                 """
-                if not args.cc:
-                    if not birdsong.path in mfccs:
-                        mfcc_template = calculateMFCCs(birdsong.path, sr=args.sample_rate)
-                        mfccs[birdsong.path] = mfcc_template
-                    else:
-                        if args.verbose:
-                            print("mfcc already calculated for template: ", birdsong.path)
-                        mfcc_template = mfccs[birdsong.path]
-                    if not birdsong_query.path in mfccs:
-                        mfcc_query = calculateMFCCs(birdsong_query.path, sr=args.sample_rate)
-                        mfccs[birdsong_query.path] = mfcc_query
-                    else: 
-                        if args.verbose:
-                            print("mfcc already calculated for query: ", birdsong_query.path)
-                        mfcc_query = mfccs[birdsong_query.path]
-
-                score = 0
-                # calculate score for every MFCC-vector
-                for i in range(num_mfccs):
-                    # first: cross correlation (can be used on audio with different length)
-                    # use this to find position of best match between query and template
-                    # normalize before cross correlation
-                    query = mfcc_query[i, :] / np.linalg.norm(mfcc_query[i, :])
-                    template = mfcc_template[i, :] / np.linalg.norm(mfcc_template[i, :])
-                    # use pearson correlation coefficient
-                    # problem: vectors have to have same length
-                    # solution: pad smaller vector with zeros
-                    ml = max(len(query), len(template))
-                    query = np.concatenate([query, np.zeros(ml - len(query))])
-                    template = np.concatenate([template, np.zeros(ml - len(template))])
-                    pearson_cc, bla = scipy.stats.pearsonr(query, template)
-                    # print("Pearson correlation coefficient: ", pearson_cc)
-                    # take absolute value of cc (high negative values can indicate correlation)
-                    score += abs(pearson_cc)
-                # print("Score: ", score)
-                score /= num_mfccs
-                scores.append(score)
+                # if not args.cc:
+                #     if not birdsong.path in mfccs:
+                #         mfcc_template = calculateMFCCs(birdsong.path, sr=args.sample_rate)
+                #         mfccs[birdsong.path] = mfcc_template
+                #     else:
+                #         if args.verbose:
+                #             print("mfcc already calculated for template: ", birdsong.path)
+                #         mfcc_template = mfccs[birdsong.path]
+                #     if not birdsong_query.path in mfccs:
+                #         mfcc_query = calculateMFCCs(birdsong_query.path, sr=args.sample_rate)
+                #         mfccs[birdsong_query.path] = mfcc_query
+                #     else: 
+                #         if args.verbose:
+                #             print("mfcc already calculated for query: ", birdsong_query.path)
+                #         mfcc_query = mfccs[birdsong_query.path]
+                        
+                mfcc_template = librosa.feature.mfcc(y_1, sr_1, n_mfcc=num_mfccs)
+                mfcc_query = librosa.feature.mfcc(y_2, sr_2, n_mfcc=num_mfccs)
+                
+                # mfcc_query has apparently NaN and infs values due to shifting
+                # reason: query audio is way longer, therefore it can happen that shifted audio is just Null
+                # solution: shift the shorter audio
+                # mfcc_query = ma.masked_invalid(mfcc_query)
+                try:
+                    score = calculateScore(num_mfccs, mfcc_query, mfcc_template)
+                    scores.append(score)
+                except ValueError:
+                    print(f"lag: {lag}")
+                    print(f"lag (s): {lag/sr_2}")
+                    ax1 = plt.subplot(221)
+                    ax1.set_title(f"template: {birdsong.path}")
+                    ax1.plot(y_1)
+                    ax2 = plt.subplot(222)
+                    ax2.set_title(f"query: {birdsong_query.path}")
+                    ax2.plot(y_2)
+                    
+                    # show cc array
+                    ax3 = plt.subplot(223)
+                    ax3.set_title(f"shifted")
+                    ax3.plot(shifted)
+                    plt.tight_layout()
+                    plt.show()
 
 end_time = time.perf_counter()
 print(f"calculation took {end_time - start_time:0.4f} seconds")

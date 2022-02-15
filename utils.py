@@ -19,7 +19,7 @@ def calculateMFCCs(path, sr=44100, n_mfcc=15):
     return mfccs
 
 
-def calculateScore(n_mfccs, query, template):
+def calculateScore(n_mfccs, mfcc_query, mfcc_template):
     """ Calculates a score to determine, how similar two mfcc vectors are
         Uses Pearson Correlation Coefficient that produces Score between -1 and 1
             0  --> no correlation
@@ -38,8 +38,8 @@ def calculateScore(n_mfccs, query, template):
         # first: cross correlation (can be used on audio with different length)
         # use this to find position of best match between query and template
         # normalize before cross correlation
-        query = query[i, :] / np.linalg.norm(query[i, :])
-        template = template[i, :] / np.linalg.norm(template[i, :])
+        query = mfcc_query[i, :] / np.linalg.norm(mfcc_query[i, :])
+        template = mfcc_template[i, :] / np.linalg.norm(mfcc_template[i, :])
         # use pearson correlation coefficient
         # problem: vectors have to have same length
         # solution: pad smaller vector with zeros
